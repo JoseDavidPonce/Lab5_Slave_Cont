@@ -30,10 +30,22 @@
 uint8_t contador = 0;
 uint8_t pulsado1 = 0;
 uint8_t pulsado2 = 0;
+uint8_t vaciador = 0;
 void Init_Ports(void);
+
+void __interrupt() isr(void){ 
+    if (PIR1bits.SSPIF == 1){
+        SSPCONbits.CKP = 0;
+        vaciador = SSPBUF;
+        PIR1bits.SSPIF = 0;
+        SSPBUF = contador;
+        SSPCONbits.CKP = 1;
+    }
+}
 
 void main(void) {
     Init_Ports();
+    Init_I2C_Slave(0x30);
     while(1){
         if (PORTBbits.RB0 == 0){
             pulsado1 = 1;

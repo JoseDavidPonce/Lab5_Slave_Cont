@@ -1,4 +1,4 @@
-# 1 "Main_Cont.c"
+# 1 "../Lab5_Master/I2C.c"
 # 1 "<built-in>" 1
 # 1 "<built-in>" 3
 # 288 "<built-in>" 3
@@ -6,28 +6,10 @@
 # 1 "<built-in>" 2
 # 1 "C:\\Program Files (x86)\\Microchip\\xc8\\v2.10\\pic\\include\\language_support.h" 1 3
 # 2 "<built-in>" 2
-# 1 "Main_Cont.c" 2
+# 1 "../Lab5_Master/I2C.c" 2
 
 
 
-
-
-
-
-#pragma config FOSC = INTRC_NOCLKOUT
-#pragma config WDTE = OFF
-#pragma config PWRTE = OFF
-#pragma config MCLRE = OFF
-#pragma config CP = OFF
-#pragma config CPD = OFF
-#pragma config BOREN = OFF
-#pragma config IESO = OFF
-#pragma config FCMEN = OFF
-#pragma config LVP = OFF
-
-
-#pragma config BOR4V = BOR40V
-#pragma config WRT = OFF
 
 
 
@@ -2517,7 +2499,7 @@ extern __bank0 unsigned char __resetbits;
 extern __bank0 __bit __powerdown;
 extern __bank0 __bit __timeout;
 # 27 "C:\\Program Files (x86)\\Microchip\\xc8\\v2.10\\pic\\include\\xc.h" 2 3
-# 26 "Main_Cont.c" 2
+# 9 "../Lab5_Master/I2C.c" 2
 
 # 1 "C:\\Program Files (x86)\\Microchip\\xc8\\v2.10\\pic\\include\\c90\\stdint.h" 1 3
 # 13 "C:\\Program Files (x86)\\Microchip\\xc8\\v2.10\\pic\\include\\c90\\stdint.h" 3
@@ -2652,74 +2634,91 @@ typedef int16_t intptr_t;
 
 
 typedef uint16_t uintptr_t;
-# 27 "Main_Cont.c" 2
+# 10 "../Lab5_Master/I2C.c" 2
 
-# 1 "./I2C_header.h" 1
-# 16 "./I2C_header.h"
+# 1 "../Lab5_Master/I2C_header.h" 1
+# 16 "../Lab5_Master/I2C_header.h"
 # 1 "C:\\Program Files (x86)\\Microchip\\xc8\\v2.10\\pic\\include\\c90\\stdint.h" 1 3
-# 16 "./I2C_header.h" 2
+# 16 "../Lab5_Master/I2C_header.h" 2
 
 
 void Init_I2C_Master(const unsigned long b);
 void Init_I2C_Slave(uint8_t address);
-void Wait_I2C_Master();
-void Start_I2C_Master();
-void Restart_I2C();
-void Stop_I2C_Master();
+void Wait_I2C_Master(void);
+void Start_I2C_Master(void);
+void Restart_I2C(void);
+void Stop_I2C_Master(void);
 void Write_I2C_Master(unsigned a);
 unsigned short I2C_Master_Read(unsigned short a);
-# 28 "Main_Cont.c" 2
+# 11 "../Lab5_Master/I2C.c" 2
 
 
-uint8_t contador = 0;
-uint8_t pulsado1 = 0;
-uint8_t pulsado2 = 0;
-uint8_t vaciador = 0;
-void Init_Ports(void);
+void Init_I2C_Master(const unsigned long b){
+    SSPCONbits.SSPM0 = 0;
+    SSPCONbits.SSPM1 = 0;
+    SSPCONbits.SSPM2 = 0;
+    SSPCONbits.SSPM3 = 1;
 
-void __attribute__((picinterrupt(("")))) isr(void){
-    if (PIR1bits.SSPIF == 1){
-        SSPCONbits.CKP = 0;
-        vaciador = SSPBUF;
-        PIR1bits.SSPIF = 0;
-        SSPBUF = contador;
-        SSPCONbits.CKP = 1;
-    }
+    SSPCONbits.CKP = 0;
+    SSPCONbits.SSPEN = 1;
+    SSPCON2 = 0;
+    SSPADD = (4000000/(4*b)) - 1;
+    SSPSTAT = 0;
+    TRISCbits.TRISC3 = 1;
+    TRISCbits.TRISC4 = 1;
 }
 
-void main(void) {
-    Init_Ports();
-    Init_I2C_Slave(0x30);
-    while(1){
-        if (PORTBbits.RB0 == 0){
-            pulsado1 = 1;
-        }
-        if (PORTBbits.RB1 == 0){
-            pulsado2 = 1;
-        }
-        if (PORTBbits.RB0 == 1 && pulsado1 == 1){
-            _delay((unsigned long)((5)*(4000000/4000.0)));
-            contador++;
-            pulsado1 = 0;
-        }
-        if (PORTBbits.RB1 == 1 && pulsado2 == 1){
-            _delay((unsigned long)((5)*(4000000/4000.0)));
-            contador--;
-            pulsado2 = 0;
-        }
-        contador = contador & 0b00001111;
-        PORTA = contador;
-    }
+void Init_I2C_Slave(uint8_t address){
+    SSPADD = address;
+    SSPCON = 0x36;
+    SSPSTAT = 0x80;
+    SSPCON2 = 0x01;
+    TRISCbits.TRISC3 = 1;
+    TRISCbits.TRISC4 = 1;
+    INTCONbits.GIE = 1;
+    INTCONbits.PEIE = 1;
+    PIR1bits.SSPIF = 0;
+    PIE1bits.SSPIE = 1;
 
 }
 
+void Wait_I2C_Master(){
+    while ((SSPSTATbits.R_nW == 1) || (SSPCON2 & 0x1F));
+}
 
-void Init_Ports(){
-    ANSEL = 0;
-    ANSELH = 0;
-    TRISBbits.TRISB0 = 1;
-    TRISBbits.TRISB1 = 1;
-    PORTB = 0;
-    TRISA = 0;
-    PORTA = 0;
+void Start_I2C_Master(){
+    Wait_I2C_Master();
+    SSPCON2bits.SEN = 1;
+}
+
+void Restart_I2C(){
+    Wait_I2C_Master();
+    SSPCON2bits.RSEN = 1;
+}
+
+void Stop_I2C_Master(){
+    Wait_I2C_Master();
+    SSPCON2bits.PEN = 1;
+}
+
+void Write_I2C_Master(unsigned a){
+    Wait_I2C_Master();
+    SSPBUF = a;
+}
+
+unsigned short I2C_Master_Read(unsigned short a){
+    unsigned short temporal;
+    Wait_I2C_Master();
+    SSPCON2bits.RCEN = 1;
+    Wait_I2C_Master();
+    temporal = SSPBUF;
+    Wait_I2C_Master();
+
+    if (a == 1){
+        SSPCON2bits.ACKDT = 0;
+    }else{
+        SSPCON2bits.ACKDT = 1;
+    }
+    SSPCON2bits.ACKEN = 1;
+    return temporal;
 }
